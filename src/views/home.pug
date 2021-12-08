@@ -1,0 +1,35 @@
+doctype html
+html(lang="en")
+    head
+        meta(charset="UTF-8")
+        meta(http-equiv="X-UA-Compatible", content="IE=edge")
+        meta(name="viewport", content="width=device-width, initial-scale=1.0")
+        link(rel="stylesheet", href="https://unpkg.com/mvp.css")
+        title Noom
+    body 
+        header
+            h1 My Zoom!
+        main
+            div#welcome 
+                form
+                    input#roomName(type="text", required, placeholder="Room Name")
+                    input#nickname(type="text", required, placeholder="Your Nickname")
+                    button Enter Room
+
+            div#call
+                div#streams
+                    div#controlers
+                        button#mute Unmute
+                        button#camera Turn Camera Off
+                        select#cameras
+                    div#myStream
+                        video#myFace(autoplay, playsinline, width="400", height="400")
+                div#chatRoom
+                    ul#chatBox
+                    form#chatForm
+                        input(required, type="text", placeholder="Write your chat")
+                        button Send
+
+
+        script(src="/socket.io/socket.io.js")
+        script(src="/public/js/app.js")
