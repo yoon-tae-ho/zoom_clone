@@ -13,8 +13,8 @@ let muted = true;
 let cameraOff = false;
 let roomName;
 let nickname;
-let myPeerConnection;
-let chatDataChannel;
+
+const peerConnectionObjArr = [];
 
 async function getCameras() {
   try {
@@ -98,12 +98,15 @@ function handleCameraClick() {
 async function handleCameraChange() {
   try {
     await getMedia(camerasSelect.value);
-    if (myPeerConnection) {
+    if (peerConnectionObjArr.length > 0) {
       const newVideoTrack = myStream.getVideoTracks()[0];
-      const peerVideoSender = myPeerConnection
-        .getSenders()
-        .find((sender) => sender.track.kind == "video");
-      peerVideoSender.replaceTrack(newVideoTrack);
+      peerConnectionObjArr.forEach((peerConnectionObj) => {
+        const peerConnection = peerConnectionObj.connection;
+        const peerVideoSender = peerConnection
+          .getSenders()
+          .find((sender) => sender.track.kind == "video");
+        peerVideoSender.replaceTrack(newVideoTrack);
+      });
     }
   } catch (error) {
     console.log(error);
@@ -124,7 +127,6 @@ async function initCall() {
   welcome.hidden = true;
   call.hidden = false;
   await getMedia();
-  createConnection();
 }
 
 async function handleWelcomeSubmit(event) {
@@ -136,7 +138,7 @@ async function handleWelcomeSubmit(event) {
   nickname = welcomeNickname.value;
   welcomeNickname.value = "";
   await initCall();
-  socket.emit("join_room", roomName, nickname);
+  socket.emit("join_room", roomName, nickname, socket.id);
 }
 
 welcomeForm.addEventListener("submit", handleWelcomeSubmit);
@@ -153,7 +155,7 @@ function handleChatSubmit(event) {
   const chatInput = chatForm.querySelector("input");
   const message = chatInput.value;
   chatInput.value = "";
-  chatDataChannel.send(`${nickname}: ${message}`);
+  socket.emit("chat", `${nickname}: ${message}`, roomName);
   writeChat(`You: ${message}`);
 }
 
@@ -167,15 +169,20 @@ function writeChat(message) {
 
 // socket code
 
-socket.on("welcome", async (nickname) => {
+socket.on("welcome", async (nickname, remoteSocketId) => {
   try {
-    chatDataChannel = myPeerConnection.createDataChannel("chat");
-    chatDataChannel.addEventListener("message", (event) =>
-      writeChat(event.data)
+    createConnection();
+    const index = peerConnectionObjArr.length - 1;
+    peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
+    const offer = await peerConnectionObjArr[index].connection.createOffer();
+    peerConnectionObjArr[index].connection.setLocalDescription(offer);
+    socket.emit(
+      "offer",
+      offer,
+      peerConnectionObjArr[index].localSocketId,
+      remoteSocketId,
+      index
     );
-    const offer = await myPeerConnection.createOffer();
-    myPeerConnection.setLocalDescription(offer);
-    socket.emit("offer", offer, roomName);
   } catch (error) {
     console.log(error);
   }
@@ -183,35 +190,38 @@ socket.on("welcome", async (nickname) => {
   writeChat(`notice! ${nickname} joined the room`);
 });
 
-socket.on("offer", async (offer) => {
+socket.on("offer", async (offer, remoteSocketId, remoteIndex) => {
   try {
-    myPeerConnection.setRemoteDescription(offer);
-    myPeerConnection.addEventListener("datachannel", (event) => {
-      chatDataChannel = event.channel;
-      chatDataChannel.addEventListener("message", (event) =>
-        writeChat(event.data)
-      );
-    });
-    const answer = await myPeerConnection.createAnswer();
-    myPeerConnection.setLocalDescription(answer);
-    socket.emit("answer", answer, roomName);
+    createConnection();
+    const index = peerConnectionObjArr.length - 1;
+    peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
+    peerConnectionObjArr[index].remoteIndex = remoteIndex;
+    peerConnectionObjArr[index].connection.setRemoteDescription(offer);
+    const answer = await peerConnectionObjArr[index].connection.createAnswer();
+    peerConnectionObjArr[index].connection.setLocalDescription(answer);
+    socket.emit("answer", answer, remoteSocketId, index, remoteIndex);
   } catch (error) {
     console.log(error);
   }
 });
 
-socket.on("answer", (answer) => {
-  myPeerConnection.setRemoteDescription(answer);
+socket.on("answer", (answer, remoteIndex, localIndex) => {
+  peerConnectionObjArr[localIndex].connection.setRemoteDescription(answer);
+  peerConnectionObjArr[localIndex].remoteIndex = remoteIndex;
 });
 
-socket.on("ice", (ice) => {
-  myPeerConnection.addIceCandidate(ice);
+socket.on("ice", async (ice, index) => {
+  await peerConnectionObjArr[index].connection.addIceCandidate(ice);
+});
+
+socket.on("chat", (message) => {
+  writeChat(message);
 });
 
 // RTC code
 
 function createConnection() {
-  myPeerConnection = new RTCPeerConnection({
+  const myPeerConnection = new RTCPeerConnection({
     iceServers: [
       {
         urls: [
@@ -226,19 +236,39 @@ function createConnection() {
   });
   myPeerConnection.addEventListener("icecandidate", handleIce);
   myPeerConnection.addEventListener("addstream", handleAddStream);
+  myPeerConnection.addEventListener("iceconnectionstatechange", (event) => {
+    console.log(
+      `${peerConnectionObjArr.length - 1}: ${event.target.connectionState}`
+    );
+    console.log(
+      `${peerConnectionObjArr.length - 1}: ${event.target.iceConnectionState}`
+    );
+  });
   myStream //
     .getTracks()
     .forEach((track) => myPeerConnection.addTrack(track, myStream));
+
+  peerConnectionObjArr.push({
+    connection: myPeerConnection,
+    localSocketId: socket.id,
+  });
 }
 
 function handleIce(event) {
-  socket.emit("ice", event.candidate, roomName);
+  peerConnectionObjArr.forEach((peerConnectionObj) => {
+    if (event.target === peerConnectionObj.connection) {
+      socket.emit(
+        "ice",
+        event.candidate,
+        peerConnectionObj.remoteSocketId,
+        peerConnectionObj.remoteIndex
+      );
+    }
+  });
 }
 
 function handleAddStream(event) {
   const peerStream = event.stream;
-  // const peerFace = document.querySelector("#peerFace");
-  // peerFace.srcObject = peerStream;
   paintPeerFace(peerStream);
 }
 

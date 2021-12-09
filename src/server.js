@@ -11,33 +11,37 @@ app.set("views", __dirname + "/views");
 app.use("/public", express.static(__dirname + "/public"));
 
 app.get("/", (req, res) => {
-    res.render("home");
+  res.render("home");
 });
 
 app.get("/*", (req, res) => {
-    res.redirect("/");
+  res.redirect("/");
 });
 
 const httpServer = http.createServer(app);
 const wsServer = SocketIO(httpServer);
 
 wsServer.on("connection", (socket) => {
-    socket.on("join_room", (roomName, nickname) => {
-        socket.join(roomName);
-        socket.to(roomName).emit("welcome", nickname);
-    });
+  socket.on("join_room", (roomName, nickname, localSocketId) => {
+    socket.join(roomName);
+    socket.to(roomName).emit("welcome", nickname, localSocketId);
+  });
 
-    socket.on("offer", (offer, roomName) => {
-        socket.to(roomName).emit("offer", offer);
-    });
+  socket.on("offer", (offer, localSocketId, remoteSocketId, index) => {
+    socket.to(remoteSocketId).emit("offer", offer, localSocketId, index);
+  });
 
-    socket.on("answer", (answer, roomName) => {
-        socket.to(roomName).emit("answer", answer);
-    });
+  socket.on("answer", (answer, remoteSocketId, localIndex, remoteIndex) => {
+    socket.to(remoteSocketId).emit("answer", answer, localIndex, remoteIndex);
+  });
 
-    socket.on("ice", (ice, roomName) => {
-        socket.to(roomName).emit("ice", ice);
-    });
+  socket.on("ice", (ice, remoteSocketId, index) => {
+    socket.to(remoteSocketId).emit("ice", ice, index);
+  });
+
+  socket.on("chat", (message, roomName) => {
+    socket.to(roomName).emit("chat", message);
+  });
 });
 
 const handleListen = () => console.log(`Listening on http://localhost:3000`);
