@@ -262,7 +262,9 @@ socket.on("answer", (answer, remoteIndex, localIndex) => {
 });
 
 socket.on("ice", async (ice, index) => {
-  await peerConnectionObjArr[index].connection.addIceCandidate(ice);
+  if (index != null) {
+    await peerConnectionObjArr[index].connection.addIceCandidate(ice);
+  }
 });
 
 socket.on("chat", (message) => {
@@ -274,7 +276,6 @@ socket.on("leave_room", (leavedSocketId, nickname) => {
   writeChat(`notice! ${nickname} leaved the room.`);
   --peopleInRoom;
   sortStreams();
-  console.log("disconnected!!!");
 });
 
 // RTC code
