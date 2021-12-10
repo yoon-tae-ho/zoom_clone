@@ -4,11 +4,14 @@ html(lang="en")
         meta(charset="UTF-8")
         meta(http-equiv="X-UA-Compatible", content="IE=edge")
         meta(name="viewport", content="width=device-width, initial-scale=1.0")
-        link(rel="stylesheet", href="https://unpkg.com/mvp.css")
-        title Noom
+        link(rel="stylesheet", href="https://use.fontawesome.com/releases/v5.15.4/css/all.css", integrity="sha384-DyZ88mC6Up2uqS4h/KRgHuoeGwBcD4Ng9SiP4dIRy0EXTlnuz47vAwmeGwVChigm", crossorigin="anonymous")
+        //- link(rel="stylesheet", href="https://unpkg.com/mvp.css")
+        link(rel="stylesheet", href="./public/css/style.css")
+        title Toom
     body 
         header
-            h1 My Zoom!
+            i(class="fab fa-pied-piper-square fa-2x")
+            h1 Toom
         main
             div#welcome 
                 form
@@ -16,14 +19,21 @@ html(lang="en")
                     input#nickname(type="text", required, placeholder="Your Nickname")
                     button Enter Room
 
-            div#call
-                div#streams
+            div#call(class="call")
+                div#streamBox
+                    div#streams
+                        div#myStream(class="people1")
+                            video#myFace(autoplay, playsinline, width="400", height="400")
                     div#controlers
-                        button#mute Unmute
-                        button#camera Turn Camera Off
                         select#cameras
-                    div#myStream
-                        video#myFace(autoplay, playsinline, width="400", height="400")
+                        div#buttons
+                            button#mute
+                                i(class="fas fa-microphone fa-2x unMuteIcon")
+                                i(class="fas fa-microphone-slash fa-2x muteIcon")
+                            button#camera 
+                                i(class="fas fa-video fa-2x cameraIcon")
+                                i(class="fas fa-video-slash fa-2x unCameraIcon")
+                        button#leave Leave
                 div#chatRoom
                     ul#chatBox
                     form#chatForm

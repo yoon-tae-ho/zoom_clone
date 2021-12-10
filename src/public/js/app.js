@@ -2,17 +2,26 @@ const socket = io();
 
 const myFace = document.querySelector("#myFace");
 const muteBtn = document.querySelector("#mute");
+const muteIcon = muteBtn.querySelector(".muteIcon");
+const unMuteIcon = muteBtn.querySelector(".unMuteIcon");
 const cameraBtn = document.querySelector("#camera");
+const cameraIcon = cameraBtn.querySelector(".cameraIcon");
+const unCameraIcon = cameraBtn.querySelector(".unCameraIcon");
 const camerasSelect = document.querySelector("#cameras");
 
 const call = document.querySelector("#call");
 const welcome = document.querySelector("#welcome");
 
+const HIDDEN_CN = "hidden";
+
 let myStream;
 let muted = true;
+unMuteIcon.classList.add(HIDDEN_CN);
 let cameraOff = false;
+unCameraIcon.classList.add(HIDDEN_CN);
 let roomName;
 let nickname;
+let peopleInRoom = 1;
 
 const peerConnectionObjArr = [];
 
@@ -74,10 +83,12 @@ function handleMuteClick() {
     .getAudioTracks()
     .forEach((track) => (track.enabled = !track.enabled));
   if (muted) {
-    muteBtn.innerText = "Mute";
+    unMuteIcon.classList.remove(HIDDEN_CN);
+    muteIcon.classList.add(HIDDEN_CN);
     muted = false;
   } else {
-    muteBtn.innerText = "Unmute";
+    muteIcon.classList.remove(HIDDEN_CN);
+    unMuteIcon.classList.add(HIDDEN_CN);
     muted = true;
   }
 }
@@ -87,10 +98,12 @@ function handleCameraClick() {
     .getVideoTracks()
     .forEach((track) => (track.enabled = !track.enabled));
   if (cameraOff) {
-    cameraBtn.innerText = "Turn Camera Off";
+    cameraIcon.classList.remove(HIDDEN_CN);
+    unCameraIcon.classList.add(HIDDEN_CN);
     cameraOff = false;
   } else {
-    cameraBtn.innerText = "Turn Camera On";
+    unCameraIcon.classList.remove(HIDDEN_CN);
+    cameraIcon.classList.add(HIDDEN_CN);
     cameraOff = true;
   }
 }
@@ -119,13 +132,14 @@ camerasSelect.addEventListener("input", handleCameraChange);
 
 // Welcome Form (choose room)
 
-call.hidden = true;
+call.classList.add(HIDDEN_CN);
+// welcome.hidden = true;
 
 const welcomeForm = welcome.querySelector("form");
 
 async function initCall() {
   welcome.hidden = true;
-  call.hidden = false;
+  call.classList.remove(HIDDEN_CN);
   await getMedia();
 }
 
@@ -166,6 +180,43 @@ function writeChat(message) {
   li.appendChild(span);
   chatBox.appendChild(li);
 }
+
+// Leave Room
+
+const leaveBtn = document.querySelector("#leave");
+
+function leaveRoom() {
+  socket.disconnect();
+
+  call.classList.add(HIDDEN_CN);
+  welcome.hidden = false;
+
+  peerConnectionObjArr = [];
+  peopleInRoom = 1;
+  myStream = "";
+
+  clearAllVideos();
+}
+
+function removeVideo(leavedSocketId) {
+  const streams = document.querySelector("#streams");
+  const streamArr = streams.querySelectorAll("div");
+  streamArr.forEach((streamElement) => {
+    if (streamElement.id === leavedSocketId) {
+      streams.removeChild(streamElement);
+    }
+  });
+}
+
+function clearAllVideos() {
+  const streams = document.querySelector("#streams");
+  const streamArr = streams.querySelectorAll("div");
+  streamArr.forEach((streamElement) => {
+    streams.removeChild(streamElement);
+  });
+}
+
+leaveBtn.addEventListener("click", leaveRoom);
 
 // socket code
 
@@ -218,6 +269,14 @@ socket.on("chat", (message) => {
   writeChat(message);
 });
 
+socket.on("leave_room", (leavedSocketId, nickname) => {
+  removeVideo(leavedSocketId);
+  writeChat(`notice! ${nickname} leaved the room.`);
+  --peopleInRoom;
+  sortStreams();
+  console.log("disconnected!!!");
+});
+
 // RTC code
 
 function createConnection() {
@@ -236,14 +295,10 @@ function createConnection() {
   });
   myPeerConnection.addEventListener("icecandidate", handleIce);
   myPeerConnection.addEventListener("addstream", handleAddStream);
-  myPeerConnection.addEventListener("iceconnectionstatechange", (event) => {
-    console.log(
-      `${peerConnectionObjArr.length - 1}: ${event.target.connectionState}`
-    );
-    console.log(
-      `${peerConnectionObjArr.length - 1}: ${event.target.iceConnectionState}`
-    );
-  });
+  // myPeerConnection.addEventListener(
+  //   "iceconnectionstatechange",
+  //   handleConnectionStateChange
+  // );
   myStream //
     .getTracks()
     .forEach((track) => myPeerConnection.addTrack(track, myStream));
@@ -252,6 +307,8 @@ function createConnection() {
     connection: myPeerConnection,
     localSocketId: socket.id,
   });
+  ++peopleInRoom;
+  sortStreams();
 }
 
 function handleIce(event) {
@@ -269,19 +326,43 @@ function handleIce(event) {
 
 function handleAddStream(event) {
   const peerStream = event.stream;
-  paintPeerFace(peerStream);
+  peerConnectionObjArr.forEach((peerConnectionObj) => {
+    if (event.target === peerConnectionObj.connection) {
+      paintPeerFace(peerStream, peerConnectionObj.remoteSocketId);
+    }
+  });
 }
 
-function paintPeerFace(peerStream) {
+function paintPeerFace(peerStream, id) {
   const streams = document.querySelector("#streams");
   const div = document.createElement("div");
+  div.id = id;
   const video = document.createElement("video");
   video.autoplay = true;
   video.playsInline = true;
-  video.style.width = "400px";
-  video.style.height = "400px";
+  video.width = "400";
+  video.height = "400";
   video.srcObject = peerStream;
 
   div.appendChild(video);
   streams.appendChild(div);
+  sortStreams();
+}
+
+// function handleConnectionStateChange(event) {
+//   console.log(
+//     `${peerConnectionObjArr.length - 1} CS: ${event.target.connectionState}`
+//   );
+//   console.log(
+//     `${peerConnectionObjArr.length - 1} ICS: ${event.target.iceConnectionState}`
+//   );
+
+//   if (event.target.iceConnectionState === "disconnected") {
+//   }
+// }
+
+function sortStreams() {
+  const streams = document.querySelector("#streams");
+  const streamArr = streams.querySelectorAll("div");
+  streamArr.forEach((stream) => (stream.className = `people${peopleInRoom}`));
 }

@@ -21,8 +21,13 @@ app.get("/*", (req, res) => {
 const httpServer = http.createServer(app);
 const wsServer = SocketIO(httpServer);
 
+let currentRoomName;
+let currentNickname;
+
 wsServer.on("connection", (socket) => {
   socket.on("join_room", (roomName, nickname, localSocketId) => {
+    currentRoomName = roomName;
+    currentNickname = nickname;
     socket.join(roomName);
     socket.to(roomName).emit("welcome", nickname, localSocketId);
   });
@@ -41,6 +46,10 @@ wsServer.on("connection", (socket) => {
 
   socket.on("chat", (message, roomName) => {
     socket.to(roomName).emit("chat", message);
+  });
+
+  socket.on("disconnecting", () => {
+    socket.to(currentRoomName).emit("leave_room", socket.id, currentNickname);
   });
 });
 
