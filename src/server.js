@@ -43,8 +43,8 @@ wsServer.on("connection", (socket) => {
     socket.to(remoteSocketId).emit("answer", answer, localIndex, remoteIndex);
   });
 
-  socket.on("ice", (ice, remoteSocketId, remoteIndex) => {
-    socket.to(remoteSocketId).emit("ice", ice, remoteIndex);
+  socket.on("ice", (ice, remoteSocketId, localDescription) => {
+    socket.to(remoteSocketId).emit("ice", ice, localDescription);
   });
 
   socket.on("chat", (message, roomName) => {

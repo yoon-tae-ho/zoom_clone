@@ -236,7 +236,7 @@ leaveBtn.addEventListener("click", leaveRoom);
 
 socket.on("welcome", async (nickname, remoteSocketId) => {
   try {
-    createConnection();
+    createConnection(remoteSocketId);
     const index = peerConnectionObjArr.length - 1;
     peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
     const offer = await peerConnectionObjArr[index].connection.createOffer();
@@ -251,7 +251,7 @@ socket.on("welcome", async (nickname, remoteSocketId) => {
 
 socket.on("offer", async (offer, remoteSocketId, remoteIndex) => {
   try {
-    createConnection();
+    createConnection(remoteSocketId);
     const index = peerConnectionObjArr.length - 1;
     peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
     peerConnectionObjArr[index].remoteIndex = remoteIndex;
@@ -269,8 +269,20 @@ socket.on("answer", (answer, remoteIndex, localIndex) => {
   peerConnectionObjArr[localIndex].connection.setRemoteDescription(answer);
 });
 
-socket.on("ice", async (ice, index) => {
-  await peerConnectionObjArr[index].connection.addIceCandidate(ice);
+socket.on("ice", (ice, remoteDescription) => {
+  const parsedDescription = JSON.parse(remoteDescription);
+  const remoteId = parsedDescription.sdp.slice(9, 27);
+
+  peerConnectionObjArr.forEach(async (peerConnectionObj) => {
+    const localId = peerConnectionObj.connection.remoteDescription.sdp.slice(
+      9,
+      27
+    );
+    if (remoteId === localId) {
+      await peerConnectionObj.connection.addIceCandidate(ice);
+    }
+    // console.log(remoteId === localId);
+  });
 });
 
 socket.on("chat", (message) => {
@@ -286,7 +298,7 @@ socket.on("leave_room", (leavedSocketId, nickname) => {
 
 // RTC code
 
-function createConnection() {
+function createConnection(remoteSocketId) {
   const myPeerConnection = new RTCPeerConnection({
     iceServers: [
       {
@@ -300,7 +312,9 @@ function createConnection() {
       },
     ],
   });
-  myPeerConnection.addEventListener("icecandidate", handleIce);
+  myPeerConnection.addEventListener("icecandidate", (event) => {
+    handleIce(event, remoteSocketId);
+  });
   myPeerConnection.addEventListener("addstream", handleAddStream);
   // myPeerConnection.addEventListener(
   //   "iceconnectionstatechange",
@@ -318,18 +332,20 @@ function createConnection() {
   sortStreams();
 }
 
-function handleIce(event) {
+function handleIce(event, remoteSocketId) {
   if (!event.candidate) {
     return;
   }
 
   peerConnectionObjArr.forEach((peerConnectionObj) => {
     if (event.target === peerConnectionObj.connection) {
+      console.log("handle!");
       socket.emit(
         "ice",
         event.candidate,
-        peerConnectionObj.remoteSocketId,
-        peerConnectionObj.remoteIndex
+        remoteSocketId, ////////////////
+        JSON.stringify(peerConnectionObj.connection.localDescription)
+        // peerConnectionObj.remoteIndex //////////////////
       );
     }
   });
