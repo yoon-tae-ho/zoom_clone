@@ -23,7 +23,7 @@ let roomName;
 let nickname;
 let peopleInRoom = 1;
 
-const peerConnectionObjArr = [];
+let peerConnectionObjArr = [];
 
 async function getCameras() {
   try {
@@ -61,16 +61,16 @@ async function getMedia(deviceId) {
       deviceId ? cameraConstraints : initialConstraints
     );
 
-    // mute default
-    myStream //
-      .getAudioTracks()
-      .forEach((track) => (track.enabled = false));
-
     // stream을 mute하는 것이 아니라 HTML video element를 mute한다.
     myFace.srcObject = myStream;
     myFace.muted = true;
 
     if (!deviceId) {
+      // mute default
+      myStream //
+        .getAudioTracks()
+        .forEach((track) => (track.enabled = false));
+
       await getCameras();
     }
   } catch (error) {
@@ -145,6 +145,11 @@ async function initCall() {
 
 async function handleWelcomeSubmit(event) {
   event.preventDefault();
+
+  if (socket.disconnected) {
+    socket.connect();
+  }
+
   const welcomeRoomName = welcomeForm.querySelector("#roomName");
   const welcomeNickname = welcomeForm.querySelector("#nickname");
   roomName = welcomeRoomName.value;
@@ -152,7 +157,7 @@ async function handleWelcomeSubmit(event) {
   nickname = welcomeNickname.value;
   welcomeNickname.value = "";
   await initCall();
-  socket.emit("join_room", roomName, nickname, socket.id);
+  socket.emit("join_room", roomName, nickname);
 }
 
 welcomeForm.addEventListener("submit", handleWelcomeSubmit);
@@ -193,9 +198,11 @@ function leaveRoom() {
 
   peerConnectionObjArr = [];
   peopleInRoom = 1;
-  myStream = "";
 
+  myStream.getTracks().forEach((track) => track.stop());
+  myFace.srcObject = null;
   clearAllVideos();
+  clearAllChat();
 }
 
 function removeVideo(leavedSocketId) {
@@ -212,8 +219,15 @@ function clearAllVideos() {
   const streams = document.querySelector("#streams");
   const streamArr = streams.querySelectorAll("div");
   streamArr.forEach((streamElement) => {
-    streams.removeChild(streamElement);
+    if (streamElement.id != "myStream") {
+      streams.removeChild(streamElement);
+    }
   });
+}
+
+function clearAllChat() {
+  const chatArr = chatBox.querySelectorAll("li");
+  chatArr.forEach((chat) => chatBox.removeChild(chat));
 }
 
 leaveBtn.addEventListener("click", leaveRoom);
@@ -227,13 +241,7 @@ socket.on("welcome", async (nickname, remoteSocketId) => {
     peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
     const offer = await peerConnectionObjArr[index].connection.createOffer();
     peerConnectionObjArr[index].connection.setLocalDescription(offer);
-    socket.emit(
-      "offer",
-      offer,
-      peerConnectionObjArr[index].localSocketId,
-      remoteSocketId,
-      index
-    );
+    socket.emit("offer", offer, remoteSocketId, index);
   } catch (error) {
     console.log(error);
   }
@@ -257,14 +265,12 @@ socket.on("offer", async (offer, remoteSocketId, remoteIndex) => {
 });
 
 socket.on("answer", (answer, remoteIndex, localIndex) => {
-  peerConnectionObjArr[localIndex].connection.setRemoteDescription(answer);
   peerConnectionObjArr[localIndex].remoteIndex = remoteIndex;
+  peerConnectionObjArr[localIndex].connection.setRemoteDescription(answer);
 });
 
 socket.on("ice", async (ice, index) => {
-  if (index != null) {
-    await peerConnectionObjArr[index].connection.addIceCandidate(ice);
-  }
+  await peerConnectionObjArr[index].connection.addIceCandidate(ice);
 });
 
 socket.on("chat", (message) => {
@@ -306,13 +312,17 @@ function createConnection() {
 
   peerConnectionObjArr.push({
     connection: myPeerConnection,
-    localSocketId: socket.id,
+    // localSocketId: socket.id,
   });
   ++peopleInRoom;
   sortStreams();
 }
 
 function handleIce(event) {
+  if (!event.candidate) {
+    return;
+  }
+
   peerConnectionObjArr.forEach((peerConnectionObj) => {
     if (event.target === peerConnectionObj.connection) {
       socket.emit(

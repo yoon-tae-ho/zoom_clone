@@ -21,27 +21,30 @@ app.get("/*", (req, res) => {
 const httpServer = http.createServer(app);
 const wsServer = SocketIO(httpServer);
 
-let currentRoomName;
-let currentNickname;
+let socketObjArr = [];
 
 wsServer.on("connection", (socket) => {
-  socket.on("join_room", (roomName, nickname, localSocketId) => {
-    currentRoomName = roomName;
-    currentNickname = nickname;
+  socket.on("join_room", (roomName, nickname) => {
+    const newSocketObj = {
+      socketId: socket.id,
+      roomName,
+      nickname,
+    };
+    socketObjArr.push(newSocketObj);
     socket.join(roomName);
-    socket.to(roomName).emit("welcome", nickname, localSocketId);
+    socket.to(roomName).emit("welcome", nickname, socket.id);
   });
 
-  socket.on("offer", (offer, localSocketId, remoteSocketId, index) => {
-    socket.to(remoteSocketId).emit("offer", offer, localSocketId, index);
+  socket.on("offer", (offer, remoteSocketId, index) => {
+    socket.to(remoteSocketId).emit("offer", offer, socket.id, index);
   });
 
   socket.on("answer", (answer, remoteSocketId, localIndex, remoteIndex) => {
     socket.to(remoteSocketId).emit("answer", answer, localIndex, remoteIndex);
   });
 
-  socket.on("ice", (ice, remoteSocketId, index) => {
-    socket.to(remoteSocketId).emit("ice", ice, index);
+  socket.on("ice", (ice, remoteSocketId, remoteIndex) => {
+    socket.to(remoteSocketId).emit("ice", ice, remoteIndex);
   });
 
   socket.on("chat", (message, roomName) => {
@@ -49,7 +52,13 @@ wsServer.on("connection", (socket) => {
   });
 
   socket.on("disconnecting", () => {
-    socket.to(currentRoomName).emit("leave_room", socket.id, currentNickname);
+    socketObjArr.forEach((socketObj) => {
+      if (socket.id === socketObj.socketId) {
+        socket
+          .to(socketObj.roomName)
+          .emit("leave_room", socket.id, socketObj.nickname);
+      }
+    });
   });
 });
 
