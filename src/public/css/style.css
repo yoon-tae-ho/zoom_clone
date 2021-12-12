@@ -136,26 +136,40 @@ main {
   border-radius: 10px;
 }
 
+/* row 1 */
 #streamBox #streams .people1 {
-  width: 60%;
-  height: 60%;
+  width: 70%;
+  height: 70%;
 }
 
+/* row 1 */
 #streamBox #streams .people2 {
   width: 47%;
   height: 47%;
 }
 
+/* row 2 */
 #streamBox #streams .people3,
 #streamBox #streams .people4 {
   width: 45%;
-  height: 45%;
+  height: 42%;
 }
 
+/* row 2 */
 #streamBox #streams .people5,
 #streamBox #streams .people6 {
   width: 32%;
   height: 32%;
+}
+
+#streamBox #streams #userNickname {
+  margin-top: 5px;
+
+  text-align: center;
+  color: whitesmoke;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 1px;
 }
 
 #streamBox #controlers {

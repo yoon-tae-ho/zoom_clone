@@ -35,8 +35,10 @@ wsServer.on("connection", (socket) => {
     socket.to(roomName).emit("welcome", nickname, socket.id);
   });
 
-  socket.on("offer", (offer, remoteSocketId, index) => {
-    socket.to(remoteSocketId).emit("offer", offer, socket.id, index);
+  socket.on("offer", (offer, remoteSocketId, index, localNickname) => {
+    socket
+      .to(remoteSocketId)
+      .emit("offer", offer, socket.id, index, localNickname);
   });
 
   socket.on("answer", (answer, remoteSocketId, localIndex, remoteIndex) => {
@@ -62,5 +64,5 @@ wsServer.on("connection", (socket) => {
   });
 });
 
-const handleListen = () => console.log(`Listening on http://localhost:3000`);
+const handleListen = () => console.log(`✅ Listening on http://localhost:3000`);
 httpServer.listen(3000, handleListen);
