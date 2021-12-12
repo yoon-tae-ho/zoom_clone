@@ -249,8 +249,14 @@ main {
   left: 0;
 
   width: 100%;
+  height: calc(100% - 51px);
   padding: 5px 10px;
 
+  display: flex;
+  flex-direction: column-reverse;
+
+  overflow-y: auto;
+  overflow-wrap: break-word;
   color: whitesmoke;
 }
 
@@ -303,7 +309,8 @@ main {
   width: 15%;
   height: 90%;
 
-  letter-spacing: 1px;
+  /* letter-spacing: 1px; */
+  text-align: center;
   color: whitesmoke;
   background: none;
   border: 1px solid rgba(0, 0, 0, 0.3);
