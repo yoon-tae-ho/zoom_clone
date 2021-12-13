@@ -26,15 +26,18 @@ html(lang="en")
                             video#myFace(autoplay, playsinline, width="400", height="400")
                             h3#userNickname  
                     div#controlers
-                        select#cameras
-                        div#buttons
-                            button#mute
-                                i(class="fas fa-microphone fa-2x unMuteIcon")
-                                i(class="fas fa-microphone-slash fa-2x muteIcon")
-                            button#camera 
-                                i(class="fas fa-video fa-2x cameraIcon")
-                                i(class="fas fa-video-slash fa-2x unCameraIcon")
-                        button#leave Leave
+                        div#controlers__column
+                            select#cameras
+                        div#controlers__column
+                            div#buttons
+                                button#mute
+                                    i(class="fas fa-microphone fa-2x unMuteIcon")
+                                    i(class="fas fa-microphone-slash fa-2x muteIcon")
+                                button#camera 
+                                    i(class="fas fa-video fa-2x cameraIcon")
+                                    i(class="fas fa-video-slash fa-2x unCameraIcon")
+                        div#controlers__column
+                            button#leave Leave
                 div#chatRoom
                     ul#chatBox
                     form#chatForm
