@@ -188,6 +188,9 @@ welcomeForm.addEventListener("submit", handleWelcomeSubmit);
 const chatForm = document.querySelector("#chatForm");
 const chatBox = document.querySelector("#chatBox");
 
+const MYCHAT_CN = "myChat";
+const NOTICE_CN = "noticeChat";
+
 chatForm.addEventListener("submit", handleChatSubmit);
 
 function handleChatSubmit(event) {
@@ -196,14 +199,15 @@ function handleChatSubmit(event) {
   const message = chatInput.value;
   chatInput.value = "";
   socket.emit("chat", `${nickname}: ${message}`, roomName);
-  writeChat(`You: ${message}`);
+  writeChat(`You: ${message}`, MYCHAT_CN);
 }
 
-function writeChat(message) {
+function writeChat(message, className = null) {
   const li = document.createElement("li");
   const span = document.createElement("span");
   span.innerText = message;
   li.appendChild(span);
+  li.classList.add(className);
   chatBox.prepend(li);
 }
 
@@ -263,7 +267,7 @@ socket.on("welcome", async (remoteNickname, remoteSocketId) => {
     const offer = await peerConnectionObjArr[index].connection.createOffer();
     peerConnectionObjArr[index].connection.setLocalDescription(offer);
     socket.emit("offer", offer, remoteSocketId, index, nickname);
-    writeChat(`notice! ${remoteNickname} joined the room`);
+    writeChat(`notice! ${remoteNickname} joined the room`, NOTICE_CN);
   } catch (error) {
     console.log(error);
   }

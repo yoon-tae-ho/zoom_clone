@@ -283,6 +283,14 @@ main {
   margin-bottom: 7px;
 }
 
+#chatRoom #chatBox .myChat {
+  opacity: 0.6;
+}
+
+#chatRoom #chatBox .noticeChat {
+  color: aquamarine;
+}
+
 #chatRoom #chatForm {
   position: absolute;
   bottom: 1px;
