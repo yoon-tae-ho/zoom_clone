@@ -23,7 +23,13 @@ let roomName;
 let nickname;
 let peopleInRoom = 1;
 
-let peerConnectionObjArr = [];
+let pcObjArr = [
+  // {
+  //   connection,
+  //   targetSocketId,
+  //   targetNickname,
+  // }
+];
 
 async function getCameras() {
   try {
@@ -223,8 +229,12 @@ function leaveRoom() {
 
   peerConnectionObjArr = [];
   peopleInRoom = 1;
+  nickname = "";
 
   myStream.getTracks().forEach((track) => track.stop());
+  const nicknameContainer = document.querySelector("#userNickname");
+  nicknameContainer.innerText = "";
+
   myFace.srcObject = null;
   clearAllVideos();
   clearAllChat();
@@ -259,59 +269,70 @@ leaveBtn.addEventListener("click", leaveRoom);
 
 // socket code
 
-socket.on("welcome", async (remoteNickname, remoteSocketId) => {
-  try {
-    createConnection(remoteSocketId, remoteNickname);
-    const index = peerConnectionObjArr.length - 1;
-    peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
-    const offer = await peerConnectionObjArr[index].connection.createOffer();
-    peerConnectionObjArr[index].connection.setLocalDescription(offer);
-    socket.emit("offer", offer, remoteSocketId, index, nickname);
-    writeChat(`notice! ${remoteNickname} joined the room`, NOTICE_CN);
-  } catch (error) {
-    console.log(error);
-  }
-});
+// socket.on("reject_join", () => {});
 
-socket.on(
-  "offer",
-  async (offer, remoteSocketId, remoteIndex, remoteNickname) => {
+socket.on("accept_join", async (userObjArr) => {
+  const length = userObjArr.length;
+  if (length === 1) {
+    return;
+  }
+
+  writeChat("Notice!", NOTICE_CN);
+  for (let i = 0; i < length - 1; ++i) {
     try {
-      createConnection(remoteSocketId, remoteNickname);
-      const index = peerConnectionObjArr.length - 1;
-      peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
-      peerConnectionObjArr[index].remoteIndex = remoteIndex;
-      peerConnectionObjArr[index].connection.setRemoteDescription(offer);
-      const answer = await peerConnectionObjArr[
-        index
-      ].connection.createAnswer();
-      peerConnectionObjArr[index].connection.setLocalDescription(answer);
-      socket.emit("answer", answer, remoteSocketId, index, remoteIndex);
-    } catch (error) {
-      console.log(error);
+      const newPC = createConnection(userObjArr[i].socketId, pcObjArr.length);
+      pcObjArr.push({
+        connection: newPC,
+        targetSocketId: userObjArr[i].socketId,
+        targetNickname: userObjArr[i].nickname,
+      });
+      const pcIndex = pcObjArr.length - 1;
+      socket.emit("send_pcIndex", userObjArr[i].socketId, pcIndex);
+      const offer = await newPC.createOffer();
+      newPC.setLocalDescription(offer);
+      socket.emit("offer", offer, userObjArr[i].socketId, nickname);
+      writeChat(`__${userObjArr[i].nickname}__`, NOTICE_CN);
+    } catch (err) {
+      console.error(err);
     }
   }
-);
-
-socket.on("answer", (answer, remoteIndex, localIndex) => {
-  peerConnectionObjArr[localIndex].remoteIndex = remoteIndex;
-  peerConnectionObjArr[localIndex].connection.setRemoteDescription(answer);
+  writeChat("is in the room.", NOTICE_CN);
 });
 
-socket.on("ice", (ice, remoteDescription) => {
-  const parsedDescription = JSON.parse(remoteDescription);
-  const remoteId = parsedDescription.sdp.slice(9, 27);
+socket.on("set_pcIndex", (remoteSocketId, remotePcIndex) => {
+  socket.emit("set_pcIndex", remoteSocketId, remotePcIndex);
+});
 
-  peerConnectionObjArr.forEach(async (peerConnectionObj) => {
-    const localId = peerConnectionObj.connection.remoteDescription.sdp.slice(
-      9,
-      27
-    );
-    if (remoteId === localId) {
-      await peerConnectionObj.connection.addIceCandidate(ice);
+socket.on("offer", async (offer, remoteSocketId, remoteNickname) => {
+  try {
+    const newPC = createConnection(remoteSocketId, pcObjArr.length);
+    pcObjArr.push({
+      connection: newPC,
+      targetSocketId: remoteSocketId,
+      targetNickname: remoteNickname,
+    });
+    const pcIndex = pcObjArr.length - 1;
+    socket.emit("send_pcIndex", remoteSocketId, pcIndex);
+    newPC.setRemoteDescription(offer);
+    const answer = await newPC.createAnswer();
+    newPC.setLocalDescription(answer);
+    socket.emit("answer", answer, remoteSocketId);
+    writeChat(`notice! __${remoteNickname}__ joined the room`, NOTICE_CN);
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+socket.on("answer", (answer, remoteSocketId) => {
+  pcObjArr.forEach((pcObj) => {
+    if (pcObj.targetSocketId === remoteSocketId) {
+      pcObj.connection.setRemoteDescription(answer);
     }
-    // console.log(remoteId === localId);
   });
+});
+
+socket.on("ice", async (ice, pcIndex) => {
+  await pcObjArr[pcIndex].connection.addIceCandidate(ice);
 });
 
 socket.on("chat", (message) => {
@@ -320,14 +341,14 @@ socket.on("chat", (message) => {
 
 socket.on("leave_room", (leavedSocketId, nickname) => {
   removeVideo(leavedSocketId);
-  writeChat(`notice! ${nickname} leaved the room.`);
+  writeChat(`notice! ${nickname} leaved the room.`, NOTICE_CN);
   --peopleInRoom;
   sortStreams();
 });
 
 // RTC code
 
-function createConnection(remoteSocketId, remoteNickname) {
+function createConnection(remoteSocketId, pcIndex) {
   const myPeerConnection = new RTCPeerConnection({
     iceServers: [
       {
@@ -345,7 +366,7 @@ function createConnection(remoteSocketId, remoteNickname) {
     handleIce(event, remoteSocketId);
   });
   myPeerConnection.addEventListener("addstream", (event) => {
-    handleAddStream(event, remoteNickname);
+    handleAddStream(event, pcIndex);
   });
   // myPeerConnection.addEventListener(
   //   "iceconnectionstatechange",
@@ -355,43 +376,24 @@ function createConnection(remoteSocketId, remoteNickname) {
     .getTracks()
     .forEach((track) => myPeerConnection.addTrack(track, myStream));
 
-  peerConnectionObjArr.push({
-    connection: myPeerConnection,
-    // localSocketId: socket.id,
-  });
   ++peopleInRoom;
   sortStreams();
+  return myPeerConnection;
 }
 
 function handleIce(event, remoteSocketId) {
-  if (!event.candidate) {
-    return;
+  if (event.candidate) {
+    socket.emit("ice", event.candidate, remoteSocketId);
   }
-
-  peerConnectionObjArr.forEach((peerConnectionObj) => {
-    if (event.target === peerConnectionObj.connection) {
-      socket.emit(
-        "ice",
-        event.candidate,
-        remoteSocketId, ////////////////
-        JSON.stringify(peerConnectionObj.connection.localDescription)
-        // peerConnectionObj.remoteIndex //////////////////
-      );
-    }
-  });
 }
 
-function handleAddStream(event, remoteNickname) {
+function handleAddStream(event, pcIndex) {
   const peerStream = event.stream;
-  peerConnectionObjArr.forEach((peerConnectionObj) => {
-    if (event.target === peerConnectionObj.connection) {
-      paintPeerFace(
-        peerStream,
-        peerConnectionObj.remoteSocketId,
-        remoteNickname
-      );
-    }
-  });
+  paintPeerFace(
+    peerStream,
+    pcObjArr[pcIndex].targetSocketId,
+    pcObjArr[pcIndex].targetNickname
+  );
 }
 
 function paintPeerFace(peerStream, id, remoteNickname) {
@@ -414,20 +416,22 @@ function paintPeerFace(peerStream, id, remoteNickname) {
   sortStreams();
 }
 
-// function handleConnectionStateChange(event) {
-//   console.log(
-//     `${peerConnectionObjArr.length - 1} CS: ${event.target.connectionState}`
-//   );
-//   console.log(
-//     `${peerConnectionObjArr.length - 1} ICS: ${event.target.iceConnectionState}`
-//   );
-
-//   if (event.target.iceConnectionState === "disconnected") {
-//   }
-// }
-
 function sortStreams() {
   const streams = document.querySelector("#streams");
   const streamArr = streams.querySelectorAll("div");
   streamArr.forEach((stream) => (stream.className = `people${peopleInRoom}`));
 }
+
+/*
+function handleConnectionStateChange(event) {
+  console.log(
+    `${peerConnectionObjArr.length - 1} CS: ${event.target.connectionState}`
+  );
+  console.log(
+    `${peerConnectionObjArr.length - 1} ICS: ${event.target.iceConnectionState}`
+  );
+
+  if (event.target.iceConnectionState === "disconnected") {
+  }
+}
+*/
