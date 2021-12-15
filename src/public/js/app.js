@@ -19,8 +19,8 @@ let muted = true;
 unMuteIcon.classList.add(HIDDEN_CN);
 let cameraOff = false;
 unCameraIcon.classList.add(HIDDEN_CN);
-let roomName;
-let nickname;
+let roomName = "";
+let nickname = "";
 let peopleInRoom = 1;
 
 let pcObjArr = [
@@ -183,7 +183,6 @@ async function handleWelcomeSubmit(event) {
   nickname = welcomeNickname.value;
   welcomeNickname.value = "";
   nicknameContainer.innerText = nickname;
-  await initCall();
   socket.emit("join_room", roomName, nickname);
 }
 
@@ -269,9 +268,19 @@ leaveBtn.addEventListener("click", leaveRoom);
 
 // socket code
 
-// socket.on("reject_join", () => {});
+socket.on("reject_join", () => {
+  // Paint modal
+
+  // Erase names
+  const nicknameContainer = document.querySelector("#userNickname");
+  nicknameContainer.innerText = "";
+  roomName = "";
+  nickname = "";
+});
 
 socket.on("accept_join", async (userObjArr) => {
+  await initCall();
+
   const length = userObjArr.length;
   if (length === 1) {
     return;
@@ -289,7 +298,7 @@ socket.on("accept_join", async (userObjArr) => {
       const pcIndex = pcObjArr.length - 1;
       socket.emit("send_pcIndex", userObjArr[i].socketId, pcIndex);
       const offer = await newPC.createOffer();
-      newPC.setLocalDescription(offer);
+      await newPC.setLocalDescription(offer);
       socket.emit("offer", offer, userObjArr[i].socketId, nickname);
       writeChat(`__${userObjArr[i].nickname}__`, NOTICE_CN);
     } catch (err) {
@@ -313,9 +322,9 @@ socket.on("offer", async (offer, remoteSocketId, remoteNickname) => {
     });
     const pcIndex = pcObjArr.length - 1;
     socket.emit("send_pcIndex", remoteSocketId, pcIndex);
-    newPC.setRemoteDescription(offer);
+    await newPC.setRemoteDescription(offer);
     const answer = await newPC.createAnswer();
-    newPC.setLocalDescription(answer);
+    await newPC.setLocalDescription(answer);
     socket.emit("answer", answer, remoteSocketId);
     writeChat(`notice! __${remoteNickname}__ joined the room`, NOTICE_CN);
   } catch (err) {
@@ -324,9 +333,9 @@ socket.on("offer", async (offer, remoteSocketId, remoteNickname) => {
 });
 
 socket.on("answer", (answer, remoteSocketId) => {
-  pcObjArr.forEach((pcObj) => {
+  pcObjArr.forEach(async (pcObj) => {
     if (pcObj.targetSocketId === remoteSocketId) {
-      pcObj.connection.setRemoteDescription(answer);
+      await pcObj.connection.setRemoteDescription(answer);
     }
   });
 });
@@ -421,15 +430,10 @@ function sortStreams() {
   const streamArr = streams.querySelectorAll("div");
   streamArr.forEach((stream) => (stream.className = `people${peopleInRoom}`));
 }
-
 /*
 function handleConnectionStateChange(event) {
-  console.log(
-    `${peerConnectionObjArr.length - 1} CS: ${event.target.connectionState}`
-  );
-  console.log(
-    `${peerConnectionObjArr.length - 1} ICS: ${event.target.iceConnectionState}`
-  );
+  console.log(`${pcObjArr.length - 1} CS: ${event.target.connectionState}`);
+  console.log(`${pcObjArr.length - 1} ICS: ${event.target.iceConnectionState}`);
 
   if (event.target.iceConnectionState === "disconnected") {
   }
