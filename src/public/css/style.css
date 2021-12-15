@@ -1,6 +1,8 @@
 @import "reset.css";
 
 :root {
+  --black-color: #212121;
+
   --header-background-color: #102027;
   --main-background-color: #546e7a;
   --chatBox-background-color: #37474f;
@@ -8,12 +10,19 @@
 
   --green-icon-color: #23c552;
   --red-icon-color: #f85031;
+
+  --modal-box-color: #8eacbb;
+  --modal-btn-color: #62ccff;
 }
 
 * {
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
     Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+body {
+  color: var(--black-color);
 }
 
 header {
@@ -105,7 +114,7 @@ main {
 
 #welcome button:hover {
   background-color: #c8cfdf;
-  color: black;
+  color: var(--black-color);
 }
 
 .call {
@@ -365,7 +374,62 @@ main {
 
 #chatRoom #chatForm button:hover {
   background-color: #c8cfdf;
-  color: black;
+  color: var(--black-color);
+}
+
+.modal {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 100vw;
+  height: 100vh;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.modal__box {
+  width: 500px;
+  height: 300px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 30px;
+
+  background-color: var(--modal-box-color);
+}
+
+.modal__text {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.modal__btn {
+  margin-top: 40px;
+  padding: 5px 30px;
+
+  background-color: var(--black-color);
+  color: var(--modal-btn-color);
+  border: none;
+  border-radius: 5px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 1px;
+
+  transition: all 0.25s ease-in-out;
+}
+
+.modal__btn:hover {
+  background-color: var(--modal-btn-color);
+  color: var(--black-color);
 }
 
 .hidden {

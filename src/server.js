@@ -33,7 +33,7 @@ let roomObjArr = [
   //   ],
   // },
 ];
-const MAXIMUM = 6;
+const MAXIMUM = 5;
 
 wsServer.on("connection", (socket) => {
   let myRoomName = null;

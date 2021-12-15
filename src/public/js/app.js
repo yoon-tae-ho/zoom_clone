@@ -266,10 +266,37 @@ function clearAllChat() {
 
 leaveBtn.addEventListener("click", leaveRoom);
 
-// socket code
+// Modal code
+
+const modal = document.querySelector(".modal");
+const modalText = modal.querySelector(".modal__text");
+const modalBtn = modal.querySelector(".modal__btn");
+
+function paintModal(text) {
+  modalText.innerText = text;
+  modal.classList.remove(HIDDEN_CN);
+
+  modal.addEventListener("click", removeModal);
+  modalBtn.addEventListener("click", removeModal);
+  document.addEventListener("keydown", handleKeydown);
+}
+
+function removeModal() {
+  modal.classList.add(HIDDEN_CN);
+  modalText.innerText = "";
+}
+
+function handleKeydown(event) {
+  if (event.code === "Escape" || event.code === "Enter") {
+    removeModal();
+  }
+}
+
+// Socket code
 
 socket.on("reject_join", () => {
   // Paint modal
+  paintModal("Sorry, The room is already full.");
 
   // Erase names
   const nicknameContainer = document.querySelector("#userNickname");
