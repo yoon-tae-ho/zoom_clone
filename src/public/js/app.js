@@ -265,7 +265,7 @@ socket.on("welcome", async (remoteNickname, remoteSocketId) => {
     const index = peerConnectionObjArr.length - 1;
     peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
     const offer = await peerConnectionObjArr[index].connection.createOffer();
-    peerConnectionObjArr[index].connection.setLocalDescription(offer);
+    await peerConnectionObjArr[index].connection.setLocalDescription(offer);
     socket.emit("offer", offer, remoteSocketId, index, nickname);
     writeChat(`notice! ${remoteNickname} joined the room`, NOTICE_CN);
   } catch (error) {
@@ -281,11 +281,11 @@ socket.on(
       const index = peerConnectionObjArr.length - 1;
       peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
       peerConnectionObjArr[index].remoteIndex = remoteIndex;
-      peerConnectionObjArr[index].connection.setRemoteDescription(offer);
+      await peerConnectionObjArr[index].connection.setRemoteDescription(offer);
       const answer = await peerConnectionObjArr[
         index
       ].connection.createAnswer();
-      peerConnectionObjArr[index].connection.setLocalDescription(answer);
+      await peerConnectionObjArr[index].connection.setLocalDescription(answer);
       socket.emit("answer", answer, remoteSocketId, index, remoteIndex);
     } catch (error) {
       console.log(error);
@@ -293,9 +293,15 @@ socket.on(
   }
 );
 
-socket.on("answer", (answer, remoteIndex, localIndex) => {
-  peerConnectionObjArr[localIndex].remoteIndex = remoteIndex;
-  peerConnectionObjArr[localIndex].connection.setRemoteDescription(answer);
+socket.on("answer", async (answer, remoteIndex, localIndex) => {
+  try {
+    peerConnectionObjArr[localIndex].remoteIndex = remoteIndex;
+    await peerConnectionObjArr[localIndex].connection.setRemoteDescription(
+      answer
+    );
+  } catch (err) {
+    console.error(err);
+  }
 });
 
 socket.on("ice", (ice, remoteDescription) => {
