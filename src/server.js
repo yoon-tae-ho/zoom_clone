@@ -38,12 +38,6 @@ const MAXIMUM = 5;
 wsServer.on("connection", (socket) => {
   let myRoomName = null;
   let myNickname = null;
-  const usersInRoom = [
-    // {
-    //   socketId,
-    //   pcIndex,
-    // },
-  ];
 
   socket.on("join_room", (roomName, nickname) => {
     myRoomName = roomName;
@@ -88,17 +82,6 @@ wsServer.on("connection", (socket) => {
     socket.emit("accept_join", targetRoomObj.users);
   });
 
-  socket.on("send_pcIndex", (remoteSocketId, pcIndex) => {
-    socket.to(remoteSocketId).emit("set_pcIndex", socket.id, pcIndex);
-  });
-
-  socket.on("set_pcIndex", (socketId, pcIndex) => {
-    usersInRoom.push({
-      socketId,
-      pcIndex,
-    });
-  });
-
   socket.on("offer", (offer, remoteSocketId, localNickname) => {
     socket.to(remoteSocketId).emit("offer", offer, socket.id, localNickname);
   });
@@ -108,11 +91,7 @@ wsServer.on("connection", (socket) => {
   });
 
   socket.on("ice", (ice, remoteSocketId) => {
-    usersInRoom.forEach((user) => {
-      if (user.socketId === remoteSocketId) {
-        socket.to(user.socketId).emit("ice", ice, user.pcIndex);
-      }
-    });
+    socket.to(remoteSocketId).emit("ice", ice, socket.id);
   });
 
   socket.on("chat", (message, roomName) => {

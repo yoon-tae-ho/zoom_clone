@@ -23,13 +23,9 @@ let roomName = "";
 let nickname = "";
 let peopleInRoom = 1;
 
-let pcObjArr = [
-  // {
-  //   connection,
-  //   targetSocketId,
-  //   targetNickname,
-  // }
-];
+let pcObj = {
+  // remoteSocketId: pc
+};
 
 async function getCameras() {
   try {
@@ -316,14 +312,10 @@ socket.on("accept_join", async (userObjArr) => {
   writeChat("Notice!", NOTICE_CN);
   for (let i = 0; i < length - 1; ++i) {
     try {
-      const newPC = createConnection(userObjArr[i].socketId, pcObjArr.length);
-      pcObjArr.push({
-        connection: newPC,
-        targetSocketId: userObjArr[i].socketId,
-        targetNickname: userObjArr[i].nickname,
-      });
-      const pcIndex = pcObjArr.length - 1;
-      socket.emit("send_pcIndex", userObjArr[i].socketId, pcIndex);
+      const newPC = createConnection(
+        userObjArr[i].socketId,
+        userObjArr[i].nickname
+      );
       const offer = await newPC.createOffer();
       await newPC.setLocalDescription(offer);
       socket.emit("offer", offer, userObjArr[i].socketId, nickname);
@@ -335,20 +327,9 @@ socket.on("accept_join", async (userObjArr) => {
   writeChat("is in the room.", NOTICE_CN);
 });
 
-socket.on("set_pcIndex", (remoteSocketId, remotePcIndex) => {
-  socket.emit("set_pcIndex", remoteSocketId, remotePcIndex);
-});
-
 socket.on("offer", async (offer, remoteSocketId, remoteNickname) => {
   try {
-    const newPC = createConnection(remoteSocketId, pcObjArr.length);
-    pcObjArr.push({
-      connection: newPC,
-      targetSocketId: remoteSocketId,
-      targetNickname: remoteNickname,
-    });
-    const pcIndex = pcObjArr.length - 1;
-    socket.emit("send_pcIndex", remoteSocketId, pcIndex);
+    const newPC = createConnection(remoteSocketId, remoteNickname);
     await newPC.setRemoteDescription(offer);
     const answer = await newPC.createAnswer();
     await newPC.setLocalDescription(answer);
@@ -359,16 +340,12 @@ socket.on("offer", async (offer, remoteSocketId, remoteNickname) => {
   }
 });
 
-socket.on("answer", (answer, remoteSocketId) => {
-  pcObjArr.forEach(async (pcObj) => {
-    if (pcObj.targetSocketId === remoteSocketId) {
-      await pcObj.connection.setRemoteDescription(answer);
-    }
-  });
+socket.on("answer", async (answer, remoteSocketId) => {
+  await pcObj[remoteSocketId].setRemoteDescription(answer);
 });
 
-socket.on("ice", async (ice, pcIndex) => {
-  await pcObjArr[pcIndex].connection.addIceCandidate(ice);
+socket.on("ice", async (ice, remoteSocketId) => {
+  await pcObj[remoteSocketId].addIceCandidate(ice);
 });
 
 socket.on("chat", (message) => {
@@ -384,7 +361,7 @@ socket.on("leave_room", (leavedSocketId, nickname) => {
 
 // RTC code
 
-function createConnection(remoteSocketId, pcIndex) {
+function createConnection(remoteSocketId, remoteNickname) {
   const myPeerConnection = new RTCPeerConnection({
     iceServers: [
       {
@@ -402,7 +379,7 @@ function createConnection(remoteSocketId, pcIndex) {
     handleIce(event, remoteSocketId);
   });
   myPeerConnection.addEventListener("addstream", (event) => {
-    handleAddStream(event, pcIndex);
+    handleAddStream(event, remoteSocketId, remoteNickname);
   });
   // myPeerConnection.addEventListener(
   //   "iceconnectionstatechange",
@@ -411,6 +388,8 @@ function createConnection(remoteSocketId, pcIndex) {
   myStream //
     .getTracks()
     .forEach((track) => myPeerConnection.addTrack(track, myStream));
+
+  pcObj[remoteSocketId] = myPeerConnection;
 
   ++peopleInRoom;
   sortStreams();
@@ -423,13 +402,9 @@ function handleIce(event, remoteSocketId) {
   }
 }
 
-function handleAddStream(event, pcIndex) {
+function handleAddStream(event, remoteSocketId, remoteNickname) {
   const peerStream = event.stream;
-  paintPeerFace(
-    peerStream,
-    pcObjArr[pcIndex].targetSocketId,
-    pcObjArr[pcIndex].targetNickname
-  );
+  paintPeerFace(peerStream, remoteSocketId, remoteNickname);
 }
 
 function paintPeerFace(peerStream, id, remoteNickname) {
