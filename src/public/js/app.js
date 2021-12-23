@@ -264,19 +264,6 @@ leaveBtn.addEventListener("click", leaveRoom);
 
 // Modal code
 
-<<<<<<< HEAD
-socket.on("welcome", async (remoteNickname, remoteSocketId) => {
-  try {
-    createConnection(remoteSocketId, remoteNickname);
-    const index = peerConnectionObjArr.length - 1;
-    peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
-    const offer = await peerConnectionObjArr[index].connection.createOffer();
-    await peerConnectionObjArr[index].connection.setLocalDescription(offer);
-    socket.emit("offer", offer, remoteSocketId, index, nickname);
-    writeChat(`notice! ${remoteNickname} joined the room`, NOTICE_CN);
-  } catch (error) {
-    console.log(error);
-=======
 const modal = document.querySelector(".modal");
 const modalText = modal.querySelector(".modal__text");
 const modalBtn = modal.querySelector(".modal__btn");
@@ -298,7 +285,6 @@ function removeModal() {
 function handleKeydown(event) {
   if (event.code === "Escape" || event.code === "Enter") {
     removeModal();
->>>>>>> cleaning_codes
   }
 }
 
@@ -326,20 +312,6 @@ socket.on("accept_join", async (userObjArr) => {
   writeChat("Notice!", NOTICE_CN);
   for (let i = 0; i < length - 1; ++i) {
     try {
-<<<<<<< HEAD
-      createConnection(remoteSocketId, remoteNickname);
-      const index = peerConnectionObjArr.length - 1;
-      peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
-      peerConnectionObjArr[index].remoteIndex = remoteIndex;
-      await peerConnectionObjArr[index].connection.setRemoteDescription(offer);
-      const answer = await peerConnectionObjArr[
-        index
-      ].connection.createAnswer();
-      await peerConnectionObjArr[index].connection.setLocalDescription(answer);
-      socket.emit("answer", answer, remoteSocketId, index, remoteIndex);
-    } catch (error) {
-      console.log(error);
-=======
       const newPC = createConnection(
         userObjArr[i].socketId,
         userObjArr[i].nickname
@@ -350,20 +322,11 @@ socket.on("accept_join", async (userObjArr) => {
       writeChat(`__${userObjArr[i].nickname}__`, NOTICE_CN);
     } catch (err) {
       console.error(err);
->>>>>>> cleaning_codes
     }
   }
   writeChat("is in the room.", NOTICE_CN);
 });
 
-<<<<<<< HEAD
-socket.on("answer", async (answer, remoteIndex, localIndex) => {
-  try {
-    peerConnectionObjArr[localIndex].remoteIndex = remoteIndex;
-    await peerConnectionObjArr[localIndex].connection.setRemoteDescription(
-      answer
-    );
-=======
 socket.on("offer", async (offer, remoteSocketId, remoteNickname) => {
   try {
     const newPC = createConnection(remoteSocketId, remoteNickname);
@@ -372,7 +335,6 @@ socket.on("offer", async (offer, remoteSocketId, remoteNickname) => {
     await newPC.setLocalDescription(answer);
     socket.emit("answer", answer, remoteSocketId);
     writeChat(`notice! __${remoteNickname}__ joined the room`, NOTICE_CN);
->>>>>>> cleaning_codes
   } catch (err) {
     console.error(err);
   }
