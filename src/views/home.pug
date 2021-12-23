@@ -43,6 +43,12 @@ html(lang="en")
                     form#chatForm
                         input(required, type="text", placeholder="Write your chat")
                         button Send
+        aside.modal.hidden
+            div.modal__box
+                h2.modal__text
+                button.modal__btn OK
+
+
 
 
         script(src="/socket.io/socket.io.js")

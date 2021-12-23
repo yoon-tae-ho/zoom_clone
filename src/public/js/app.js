@@ -19,11 +19,13 @@ let muted = true;
 unMuteIcon.classList.add(HIDDEN_CN);
 let cameraOff = false;
 unCameraIcon.classList.add(HIDDEN_CN);
-let roomName;
-let nickname;
+let roomName = "";
+let nickname = "";
 let peopleInRoom = 1;
 
-let peerConnectionObjArr = [];
+let pcObj = {
+  // remoteSocketId: pc
+};
 
 async function getCameras() {
   try {
@@ -177,7 +179,6 @@ async function handleWelcomeSubmit(event) {
   nickname = welcomeNickname.value;
   welcomeNickname.value = "";
   nicknameContainer.innerText = nickname;
-  await initCall();
   socket.emit("join_room", roomName, nickname);
 }
 
@@ -223,8 +224,12 @@ function leaveRoom() {
 
   peerConnectionObjArr = [];
   peopleInRoom = 1;
+  nickname = "";
 
   myStream.getTracks().forEach((track) => track.stop());
+  const nicknameContainer = document.querySelector("#userNickname");
+  nicknameContainer.innerText = "";
+
   myFace.srcObject = null;
   clearAllVideos();
   clearAllChat();
@@ -257,8 +262,9 @@ function clearAllChat() {
 
 leaveBtn.addEventListener("click", leaveRoom);
 
-// socket code
+// Modal code
 
+<<<<<<< HEAD
 socket.on("welcome", async (remoteNickname, remoteSocketId) => {
   try {
     createConnection(remoteSocketId, remoteNickname);
@@ -270,13 +276,57 @@ socket.on("welcome", async (remoteNickname, remoteSocketId) => {
     writeChat(`notice! ${remoteNickname} joined the room`, NOTICE_CN);
   } catch (error) {
     console.log(error);
+=======
+const modal = document.querySelector(".modal");
+const modalText = modal.querySelector(".modal__text");
+const modalBtn = modal.querySelector(".modal__btn");
+
+function paintModal(text) {
+  modalText.innerText = text;
+  modal.classList.remove(HIDDEN_CN);
+
+  modal.addEventListener("click", removeModal);
+  modalBtn.addEventListener("click", removeModal);
+  document.addEventListener("keydown", handleKeydown);
+}
+
+function removeModal() {
+  modal.classList.add(HIDDEN_CN);
+  modalText.innerText = "";
+}
+
+function handleKeydown(event) {
+  if (event.code === "Escape" || event.code === "Enter") {
+    removeModal();
+>>>>>>> cleaning_codes
   }
+}
+
+// Socket code
+
+socket.on("reject_join", () => {
+  // Paint modal
+  paintModal("Sorry, The room is already full.");
+
+  // Erase names
+  const nicknameContainer = document.querySelector("#userNickname");
+  nicknameContainer.innerText = "";
+  roomName = "";
+  nickname = "";
 });
 
-socket.on(
-  "offer",
-  async (offer, remoteSocketId, remoteIndex, remoteNickname) => {
+socket.on("accept_join", async (userObjArr) => {
+  await initCall();
+
+  const length = userObjArr.length;
+  if (length === 1) {
+    return;
+  }
+
+  writeChat("Notice!", NOTICE_CN);
+  for (let i = 0; i < length - 1; ++i) {
     try {
+<<<<<<< HEAD
       createConnection(remoteSocketId, remoteNickname);
       const index = peerConnectionObjArr.length - 1;
       peerConnectionObjArr[index].remoteSocketId = remoteSocketId;
@@ -289,35 +339,51 @@ socket.on(
       socket.emit("answer", answer, remoteSocketId, index, remoteIndex);
     } catch (error) {
       console.log(error);
+=======
+      const newPC = createConnection(
+        userObjArr[i].socketId,
+        userObjArr[i].nickname
+      );
+      const offer = await newPC.createOffer();
+      await newPC.setLocalDescription(offer);
+      socket.emit("offer", offer, userObjArr[i].socketId, nickname);
+      writeChat(`__${userObjArr[i].nickname}__`, NOTICE_CN);
+    } catch (err) {
+      console.error(err);
+>>>>>>> cleaning_codes
     }
   }
-);
+  writeChat("is in the room.", NOTICE_CN);
+});
 
+<<<<<<< HEAD
 socket.on("answer", async (answer, remoteIndex, localIndex) => {
   try {
     peerConnectionObjArr[localIndex].remoteIndex = remoteIndex;
     await peerConnectionObjArr[localIndex].connection.setRemoteDescription(
       answer
     );
+=======
+socket.on("offer", async (offer, remoteSocketId, remoteNickname) => {
+  try {
+    const newPC = createConnection(remoteSocketId, remoteNickname);
+    await newPC.setRemoteDescription(offer);
+    const answer = await newPC.createAnswer();
+    await newPC.setLocalDescription(answer);
+    socket.emit("answer", answer, remoteSocketId);
+    writeChat(`notice! __${remoteNickname}__ joined the room`, NOTICE_CN);
+>>>>>>> cleaning_codes
   } catch (err) {
     console.error(err);
   }
 });
 
-socket.on("ice", (ice, remoteDescription) => {
-  const parsedDescription = JSON.parse(remoteDescription);
-  const remoteId = parsedDescription.sdp.slice(9, 27);
+socket.on("answer", async (answer, remoteSocketId) => {
+  await pcObj[remoteSocketId].setRemoteDescription(answer);
+});
 
-  peerConnectionObjArr.forEach(async (peerConnectionObj) => {
-    const localId = peerConnectionObj.connection.remoteDescription.sdp.slice(
-      9,
-      27
-    );
-    if (remoteId === localId) {
-      await peerConnectionObj.connection.addIceCandidate(ice);
-    }
-    // console.log(remoteId === localId);
-  });
+socket.on("ice", async (ice, remoteSocketId) => {
+  await pcObj[remoteSocketId].addIceCandidate(ice);
 });
 
 socket.on("chat", (message) => {
@@ -326,7 +392,7 @@ socket.on("chat", (message) => {
 
 socket.on("leave_room", (leavedSocketId, nickname) => {
   removeVideo(leavedSocketId);
-  writeChat(`notice! ${nickname} leaved the room.`);
+  writeChat(`notice! ${nickname} leaved the room.`, NOTICE_CN);
   --peopleInRoom;
   sortStreams();
 });
@@ -351,7 +417,7 @@ function createConnection(remoteSocketId, remoteNickname) {
     handleIce(event, remoteSocketId);
   });
   myPeerConnection.addEventListener("addstream", (event) => {
-    handleAddStream(event, remoteNickname);
+    handleAddStream(event, remoteSocketId, remoteNickname);
   });
   // myPeerConnection.addEventListener(
   //   "iceconnectionstatechange",
@@ -361,43 +427,22 @@ function createConnection(remoteSocketId, remoteNickname) {
     .getTracks()
     .forEach((track) => myPeerConnection.addTrack(track, myStream));
 
-  peerConnectionObjArr.push({
-    connection: myPeerConnection,
-    // localSocketId: socket.id,
-  });
+  pcObj[remoteSocketId] = myPeerConnection;
+
   ++peopleInRoom;
   sortStreams();
+  return myPeerConnection;
 }
 
 function handleIce(event, remoteSocketId) {
-  if (!event.candidate) {
-    return;
+  if (event.candidate) {
+    socket.emit("ice", event.candidate, remoteSocketId);
   }
-
-  peerConnectionObjArr.forEach((peerConnectionObj) => {
-    if (event.target === peerConnectionObj.connection) {
-      socket.emit(
-        "ice",
-        event.candidate,
-        remoteSocketId, ////////////////
-        JSON.stringify(peerConnectionObj.connection.localDescription)
-        // peerConnectionObj.remoteIndex //////////////////
-      );
-    }
-  });
 }
 
-function handleAddStream(event, remoteNickname) {
+function handleAddStream(event, remoteSocketId, remoteNickname) {
   const peerStream = event.stream;
-  peerConnectionObjArr.forEach((peerConnectionObj) => {
-    if (event.target === peerConnectionObj.connection) {
-      paintPeerFace(
-        peerStream,
-        peerConnectionObj.remoteSocketId,
-        remoteNickname
-      );
-    }
-  });
+  paintPeerFace(peerStream, remoteSocketId, remoteNickname);
 }
 
 function paintPeerFace(peerStream, id, remoteNickname) {
@@ -420,20 +465,17 @@ function paintPeerFace(peerStream, id, remoteNickname) {
   sortStreams();
 }
 
-// function handleConnectionStateChange(event) {
-//   console.log(
-//     `${peerConnectionObjArr.length - 1} CS: ${event.target.connectionState}`
-//   );
-//   console.log(
-//     `${peerConnectionObjArr.length - 1} ICS: ${event.target.iceConnectionState}`
-//   );
-
-//   if (event.target.iceConnectionState === "disconnected") {
-//   }
-// }
-
 function sortStreams() {
   const streams = document.querySelector("#streams");
   const streamArr = streams.querySelectorAll("div");
   streamArr.forEach((stream) => (stream.className = `people${peopleInRoom}`));
 }
+/*
+function handleConnectionStateChange(event) {
+  console.log(`${pcObjArr.length - 1} CS: ${event.target.connectionState}`);
+  console.log(`${pcObjArr.length - 1} ICS: ${event.target.iceConnectionState}`);
+
+  if (event.target.iceConnectionState === "disconnected") {
+  }
+}
+*/
