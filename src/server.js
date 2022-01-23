@@ -3,12 +3,14 @@ import express from "express";
 import SocketIO from "socket.io";
 import http from "http";
 
+const PORT = process.env.PORT || 4000;
+
 const app = express();
 
 app.set("view engine", "pug");
-app.set("views", __dirname + "/views");
+app.set("views", process.cwd() + "/src/views");
 
-app.use("/public", express.static(__dirname + "/public"));
+app.use("/public", express.static(process.cwd() + "/src/public"));
 
 app.get("/", (req, res) => {
   res.render("home");
@@ -126,5 +128,6 @@ wsServer.on("connection", (socket) => {
   });
 });
 
-const handleListen = () => console.log(`✅ Listening on http://localhost:3001`);
-httpServer.listen(3001, handleListen);
+const handleListen = () =>
+  console.log(`✅ Listening on http://localhost:${PORT}`);
+httpServer.listen(PORT, handleListen);
